@@ -10,14 +10,21 @@ Think of it as Granola on steroids: it doesn't just take notes, it reads the roo
   <img src="assets/screenshot.png" width="360" alt="OpenGranola during an investor call — suggestions drawn from your own notes appear at the top, live transcript below" />
 </p>
 
+## Features
+
+- **Invisible to the other side** — the app window is hidden from screen sharing by default, so no one knows you're using it
+- **Fully offline transcription** — speech recognition runs entirely on your Mac; no audio ever leaves the device
+- **Pick any LLM** — suggestions are generated through [OpenRouter](https://openrouter.ai/), so you can use whichever model you want (GPT-4o, Claude, Gemini, Llama, etc.)
+- **Live transcript** — see both sides of the conversation as it happens, copy the whole thing with one click
+- **Auto-saved sessions** — every conversation is automatically saved as a plain-text transcript and a structured session log, no manual export needed
+- **Knowledge base search** — point it at a folder of notes and it pulls in what's relevant using [Voyage AI](https://www.voyageai.com/) embeddings
+
 ## How it works
 
 1. You start a call and hit **Live**
-2. OpenGranola transcribes both speakers locally on your Mac (nothing leaves the device)
+2. OpenGranola transcribes both speakers locally on your Mac
 3. When the conversation hits a moment that matters — a question, a decision point, a claim worth backing up — it searches your notes and surfaces relevant talking points
 4. You sound prepared because you are
-
-Transcription is fully on-device. Your knowledge base is indexed with [Voyage AI](https://www.voyageai.com/) embeddings, and suggestions are generated through [OpenRouter](https://openrouter.ai/) (pick any model you like).
 
 ## Download
 
