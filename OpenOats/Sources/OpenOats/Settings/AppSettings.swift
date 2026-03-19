@@ -7,6 +7,7 @@ import CoreAudio
 enum LLMProvider: String, CaseIterable, Identifiable {
     case openRouter
     case ollama
+    case openAICompatible
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum LLMProvider: String, CaseIterable, Identifiable {
         switch self {
         case .openRouter: "OpenRouter"
         case .ollama: "Ollama"
+        case .openAICompatible: "OpenAI Compatible"
         }
     }
 }
@@ -144,6 +146,18 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(ollamaEmbedModel, forKey: "ollamaEmbedModel") }
     }
 
+    var openAILLMBaseURL: String {
+        didSet { UserDefaults.standard.set(openAILLMBaseURL, forKey: "openAILLMBaseURL") }
+    }
+
+    var openAILLMApiKey: String {
+        didSet { KeychainHelper.save(key: "openAILLMApiKey", value: openAILLMApiKey) }
+    }
+
+    var openAILLMModel: String {
+        didSet { UserDefaults.standard.set(openAILLMModel, forKey: "openAILLMModel") }
+    }
+
     var openAIEmbedBaseURL: String {
         didSet { UserDefaults.standard.set(openAIEmbedBaseURL, forKey: "openAIEmbedBaseURL") }
     }
@@ -194,6 +208,9 @@ final class AppSettings {
         self.ollamaBaseURL = defaults.string(forKey: "ollamaBaseURL") ?? "http://localhost:11434"
         self.ollamaLLMModel = defaults.string(forKey: "ollamaLLMModel") ?? "qwen3:8b"
         self.ollamaEmbedModel = defaults.string(forKey: "ollamaEmbedModel") ?? "nomic-embed-text"
+        self.openAILLMBaseURL = defaults.string(forKey: "openAILLMBaseURL") ?? "http://localhost:4000"
+        self.openAILLMApiKey = KeychainHelper.load(key: "openAILLMApiKey") ?? ""
+        self.openAILLMModel = defaults.string(forKey: "openAILLMModel") ?? ""
         self.openAIEmbedBaseURL = defaults.string(forKey: "openAIEmbedBaseURL") ?? "http://localhost:8080"
         self.openAIEmbedApiKey = KeychainHelper.load(key: "openAIEmbedApiKey") ?? ""
         self.openAIEmbedModel = defaults.string(forKey: "openAIEmbedModel") ?? "text-embedding-3-small"
@@ -399,6 +416,7 @@ final class AppSettings {
         switch llmProvider {
         case .openRouter: raw = selectedModel
         case .ollama: raw = ollamaLLMModel
+        case .openAICompatible: raw = openAILLMModel
         }
         return raw.split(separator: "/").last.map(String.init) ?? raw
     }

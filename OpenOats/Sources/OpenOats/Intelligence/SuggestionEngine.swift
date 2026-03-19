@@ -47,6 +47,8 @@ final class SuggestionEngine {
         switch settings.llmProvider {
         case .openRouter: settings.openRouterApiKey
         case .ollama: nil
+        case .openAICompatible:
+            settings.openAILLMApiKey.isEmpty ? nil : settings.openAILLMApiKey
         }
     }
 
@@ -57,6 +59,9 @@ final class SuggestionEngine {
         case .ollama:
             let base = settings.ollamaBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             return URL(string: base + "/v1/chat/completions")
+        case .openAICompatible:
+            let base = settings.openAILLMBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return URL(string: base + "/v1/chat/completions")
         }
     }
 
@@ -65,6 +70,7 @@ final class SuggestionEngine {
         switch settings.llmProvider {
         case .openRouter: settings.selectedModel
         case .ollama: settings.ollamaLLMModel
+        case .openAICompatible: settings.openAILLMModel
         }
     }
 
@@ -82,6 +88,8 @@ final class SuggestionEngine {
             guard !settings.openRouterApiKey.isEmpty else { return }
         case .ollama:
             break // No API key needed
+        case .openAICompatible:
+            break // API key is optional for local endpoints
         }
 
         currentTask = Task {

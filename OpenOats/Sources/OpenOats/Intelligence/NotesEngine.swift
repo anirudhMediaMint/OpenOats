@@ -37,6 +37,11 @@ final class NotesEngine {
             let base = settings.ollamaBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             baseURL = URL(string: base + "/v1/chat/completions")
             model = settings.ollamaLLMModel
+        case .openAICompatible:
+            apiKey = settings.openAILLMApiKey.isEmpty ? nil : settings.openAILLMApiKey
+            let base = settings.openAILLMBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            baseURL = URL(string: base + "/v1/chat/completions")
+            model = settings.openAILLMModel
         }
 
         let transcriptText = formatTranscript(transcript)

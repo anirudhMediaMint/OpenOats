@@ -73,17 +73,29 @@ struct SettingsView: View {
                 }
                 .font(.system(size: 12))
 
-                if settings.llmProvider == .openRouter {
+                switch settings.llmProvider {
+                case .openRouter:
                     SecureField("API Key", text: $settings.openRouterApiKey)
                         .font(.system(size: 12, design: .monospaced))
 
                     TextField("Model", text: $settings.selectedModel, prompt: Text("e.g. google/gemini-3-flash-preview"))
                         .font(.system(size: 12, design: .monospaced))
-                } else {
+
+                case .ollama:
                     TextField("Ollama URL", text: $settings.ollamaBaseURL, prompt: Text("http://localhost:11434"))
                         .font(.system(size: 12, design: .monospaced))
 
                     TextField("Model", text: $settings.ollamaLLMModel, prompt: Text("e.g. qwen3:8b"))
+                        .font(.system(size: 12, design: .monospaced))
+
+                case .openAICompatible:
+                    TextField("Endpoint URL", text: $settings.openAILLMBaseURL, prompt: Text("http://localhost:4000"))
+                        .font(.system(size: 12, design: .monospaced))
+
+                    SecureField("API Key (optional)", text: $settings.openAILLMApiKey)
+                        .font(.system(size: 12, design: .monospaced))
+
+                    TextField("Model", text: $settings.openAILLMModel, prompt: Text("e.g. gpt-4o"))
                         .font(.system(size: 12, design: .monospaced))
                 }
             }
