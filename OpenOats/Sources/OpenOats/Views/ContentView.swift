@@ -341,7 +341,15 @@ struct ContentView: View {
         Task {
             suggestionEngine?.clear()
             await coordinator.startSession(transcriptStore: transcriptStore)
+
+            // Wire transcript logger error callback
+            await transcriptLogger?.setWriteErrorHandler { [weak coordinator] message in
+                Task { @MainActor in
+                    coordinator?.lastStorageError = message
+                }
+            }
             await transcriptLogger?.startSession()
+
             await transcriptionEngine?.start(
                 locale: settings.locale,
                 inputDeviceID: settings.inputDeviceID,

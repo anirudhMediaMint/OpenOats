@@ -13,6 +13,9 @@ final class AppCoordinator {
 
     var selectedTemplate: MeetingTemplate?
     var lastEndedSession: SessionIndex?
+
+    /// Surfaced to the UI when a storage write fails.
+    var lastStorageError: String?
     private(set) var sessionHistory: [SessionIndex] = []
 
     /// The template snapshot frozen at session start (not stop).
@@ -21,6 +24,7 @@ final class AppCoordinator {
     /// Start a new recording session, optionally with a template.
     func startSession(transcriptStore: TranscriptStore) async {
         lastEndedSession = nil
+        lastStorageError = nil
 
         // Clear transcript from previous session
         transcriptStore.clear()
@@ -32,6 +36,13 @@ final class AppCoordinator {
             sessionTemplateSnapshot = templateStore.snapshot(of: generic)
         } else {
             sessionTemplateSnapshot = nil
+        }
+
+        // Wire storage error callback
+        await sessionStore.setWriteErrorHandler { [weak self] message in
+            Task { @MainActor in
+                self?.lastStorageError = message
+            }
         }
 
         let templateID = selectedTemplate?.id
