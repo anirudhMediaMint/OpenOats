@@ -17,6 +17,17 @@ func diagLog(_ msg: String) {
     }
 }
 
+enum TranscriptionEngineError: Error, LocalizedError {
+    case transcriberNotInitialized(TranscriptionModel)
+
+    var errorDescription: String? {
+        switch self {
+        case .transcriberNotInitialized(let model):
+            "Transcription model \(model.displayName) is not initialized. Try restarting the session."
+        }
+    }
+}
+
 /// Orchestrates dual StreamingTranscriber instances for mic (you) and system audio (them).
 @Observable
 @MainActor
@@ -48,6 +59,7 @@ final class TranscriptionEngine {
     private var micAsrManager: AsrManager?
     private var systemAsrManager: AsrManager?
     private var qwen3Manager: Qwen3AsrManager?
+    private var mlxTranscriber: MLXTranscriber?
     private var vadManager: VadManager?
     private var currentTranscriptionModel: TranscriptionModel?
 
@@ -117,6 +129,7 @@ final class TranscriptionEngine {
                 self.micAsrManager = micAsr
                 self.systemAsrManager = systemAsr
                 self.qwen3Manager = nil
+                self.mlxTranscriber = nil
             case .parakeetV3:
                 let models = try await AsrModels.downloadAndLoad(version: .v3)
                 assetStatus = "Initializing \(transcriptionModel.displayName)..."
@@ -127,6 +140,7 @@ final class TranscriptionEngine {
                 self.micAsrManager = micAsr
                 self.systemAsrManager = systemAsr
                 self.qwen3Manager = nil
+                self.mlxTranscriber = nil
             case .qwen3ASR06B:
                 assetStatus = "Initializing \(transcriptionModel.displayName)..."
                 let modelsDirectory = try await Qwen3AsrModels.download()
@@ -135,6 +149,15 @@ final class TranscriptionEngine {
                 self.qwen3Manager = qwen3
                 self.micAsrManager = nil
                 self.systemAsrManager = nil
+                self.mlxTranscriber = nil
+            case .qwen3ASR17B:
+                assetStatus = "Initializing \(transcriptionModel.displayName)..."
+                let mlx = MLXTranscriber()
+                try await mlx.loadModel()
+                self.mlxTranscriber = mlx
+                self.micAsrManager = nil
+                self.systemAsrManager = nil
+                self.qwen3Manager = nil
             }
 
             assetStatus = "Loading VAD model..."
@@ -194,22 +217,27 @@ final class TranscriptionEngine {
 
         // 4. Start system audio transcription
         if let sysStream = sysStreams?.systemAudio {
-            let sysTranscriber = makeTranscriber(
-                locale: locale,
-                speaker: .them,
-                vadManager: vadManager,
-                onPartial: { text in
-                    Task { @MainActor in store.volatileThemText = text }
-                },
-                onFinal: { text in
-                    Task { @MainActor in
-                        store.volatileThemText = ""
-                        store.append(Utterance(text: text, speaker: .them))
+            do {
+                let sysTranscriber = try makeTranscriber(
+                    locale: locale,
+                    speaker: .them,
+                    vadManager: vadManager,
+                    onPartial: { text in
+                        Task { @MainActor in store.volatileThemText = text }
+                    },
+                    onFinal: { text in
+                        Task { @MainActor in
+                            store.volatileThemText = ""
+                            store.append(Utterance(text: text, speaker: .them))
+                        }
                     }
+                )
+                sysTask = Task.detached {
+                    await sysTranscriber.run(stream: sysStream)
                 }
-            )
-            sysTask = Task.detached {
-                await sysTranscriber.run(stream: sysStream)
+            } catch {
+                lastError = error.localizedDescription
+                diagLog("[ENGINE-SYS-TRANSCRIBER-FAIL] \(error)")
             }
         }
 
@@ -336,6 +364,7 @@ final class TranscriptionEngine {
         sysTask = nil
         pendingMicDeviceID = nil
         micKeepAliveTask = nil
+        mlxTranscriber = nil
         currentMicDeviceID = 0
         currentTranscriptionModel = nil
         isRunning = false
@@ -355,6 +384,7 @@ final class TranscriptionEngine {
         micKeepAliveTask = nil
         Task { await systemCapture.stop() }
         micCapture.stop()
+        mlxTranscriber = nil
         currentMicDeviceID = 0
         currentTranscriptionModel = nil
         isRunning = false
@@ -409,22 +439,27 @@ final class TranscriptionEngine {
     ) {
         let micStream = micCapture.bufferStream(deviceID: deviceID)
         let store = transcriptStore
-        let micTranscriber = makeTranscriber(
-            locale: locale,
-            speaker: .you,
-            vadManager: vadManager,
-            onPartial: { text in
-                Task { @MainActor in store.volatileYouText = text }
-            },
-            onFinal: { text in
-                Task { @MainActor in
-                    store.volatileYouText = ""
-                    store.append(Utterance(text: text, speaker: .you))
+        do {
+            let micTranscriber = try makeTranscriber(
+                locale: locale,
+                speaker: .you,
+                vadManager: vadManager,
+                onPartial: { text in
+                    Task { @MainActor in store.volatileYouText = text }
+                },
+                onFinal: { text in
+                    Task { @MainActor in
+                        store.volatileYouText = ""
+                        store.append(Utterance(text: text, speaker: .you))
+                    }
                 }
+            )
+            micTask = Task.detached {
+                await micTranscriber.run(stream: micStream)
             }
-        )
-        micTask = Task.detached {
-            await micTranscriber.run(stream: micStream)
+        } catch {
+            lastError = error.localizedDescription
+            diagLog("[ENGINE-MIC-TRANSCRIBER-FAIL] \(error)")
         }
     }
 
@@ -434,12 +469,12 @@ final class TranscriptionEngine {
         vadManager: VadManager,
         onPartial: @escaping @Sendable (String) -> Void,
         onFinal: @escaping @Sendable (String) -> Void
-    ) -> StreamingTranscriber {
+    ) throws -> StreamingTranscriber {
         switch currentTranscriptionModel ?? settings.transcriptionModel {
         case .parakeetV2, .parakeetV3:
             let asrManager = speaker == .you ? micAsrManager : systemAsrManager
             guard let asrManager else {
-                fatalError("Parakeet transcription requested without an initialized AsrManager")
+                throw TranscriptionEngineError.transcriberNotInitialized(currentTranscriptionModel ?? settings.transcriptionModel)
             }
             return StreamingTranscriber(
                 asrManager: asrManager,
@@ -450,12 +485,25 @@ final class TranscriptionEngine {
             )
         case .qwen3ASR06B:
             guard let qwen3Manager else {
-                fatalError("Qwen3 transcription requested without an initialized Qwen3AsrManager")
+                throw TranscriptionEngineError.transcriberNotInitialized(currentTranscriptionModel ?? settings.transcriptionModel)
             }
             let qwenLanguage = qwen3Language(for: locale)
             return StreamingTranscriber(
                 qwen3Manager: qwen3Manager,
                 qwenLanguage: qwenLanguage,
+                vadManager: vadManager,
+                speaker: speaker,
+                onPartial: onPartial,
+                onFinal: onFinal
+            )
+        case .qwen3ASR17B:
+            guard let mlxTranscriber else {
+                throw TranscriptionEngineError.transcriberNotInitialized(currentTranscriptionModel ?? settings.transcriptionModel)
+            }
+            let language = mlxLanguageName(for: locale)
+            return StreamingTranscriber(
+                mlxTranscriber: mlxTranscriber,
+                language: language,
                 vadManager: vadManager,
                 speaker: speaker,
                 onPartial: onPartial,
@@ -495,6 +543,8 @@ final class TranscriptionEngine {
             )
         case .qwen3ASR06B:
             return !Qwen3AsrModels.modelsExist(at: Qwen3AsrModels.defaultCacheDirectory())
+        case .qwen3ASR17B:
+            return !MLXTranscriber.modelExists()
         }
     }
 
@@ -522,5 +572,24 @@ final class TranscriptionEngine {
         let languageCode = normalizedLanguageCode(for: locale)
         guard let languageCode else { return nil }
         return Qwen3AsrConfig.Language(from: languageCode)
+    }
+
+    private func mlxLanguageName(for locale: Locale) -> String {
+        guard let languageCode = normalizedLanguageCode(for: locale) else {
+            return "English"
+        }
+        let mapping: [String: String] = [
+            "en": "English", "zh": "Chinese", "ja": "Japanese",
+            "ko": "Korean", "fr": "French", "de": "German",
+            "es": "Spanish", "pt": "Portuguese", "it": "Italian",
+            "ru": "Russian", "ar": "Arabic", "hi": "Hindi",
+            "th": "Thai", "vi": "Vietnamese", "tr": "Turkish",
+            "nl": "Dutch", "pl": "Polish", "sv": "Swedish",
+            "da": "Danish", "fi": "Finnish", "cs": "Czech",
+            "el": "Greek", "hu": "Hungarian", "ro": "Romanian",
+            "id": "Indonesian", "ms": "Malay", "fa": "Persian",
+            "fil": "Filipino", "mk": "Macedonian", "yue": "Cantonese",
+        ]
+        return mapping[languageCode] ?? "English"
     }
 }
