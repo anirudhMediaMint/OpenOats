@@ -1,15 +1,17 @@
 import Testing
-@testable import OpenOats
+@testable import OpenOatsKit
 
 @Suite("TranscriptionModel enum")
 struct TranscriptionModelTests {
-    @Test("has four cases")
+    @Test("has six cases")
     func allCases() {
-        #expect(TranscriptionModel.allCases.count == 4)
+        #expect(TranscriptionModel.allCases.count == 6)
         #expect(TranscriptionModel.allCases.contains(.parakeetV2))
         #expect(TranscriptionModel.allCases.contains(.parakeetV3))
         #expect(TranscriptionModel.allCases.contains(.qwen3ASR06B))
-        #expect(TranscriptionModel.allCases.contains(.qwen3ASR17B))
+        #expect(TranscriptionModel.allCases.contains(.whisperBase))
+        #expect(TranscriptionModel.allCases.contains(.whisperSmall))
+        #expect(TranscriptionModel.allCases.contains(.mlxQwen3ASR))
     }
 
     @Test("raw values are stable for UserDefaults persistence")
@@ -17,7 +19,9 @@ struct TranscriptionModelTests {
         #expect(TranscriptionModel.parakeetV2.rawValue == "parakeetV2")
         #expect(TranscriptionModel.parakeetV3.rawValue == "parakeetV3")
         #expect(TranscriptionModel.qwen3ASR06B.rawValue == "qwen3ASR06B")
-        #expect(TranscriptionModel.qwen3ASR17B.rawValue == "qwen3ASR17B")
+        #expect(TranscriptionModel.whisperBase.rawValue == "whisperBase")
+        #expect(TranscriptionModel.whisperSmall.rawValue == "whisperSmall")
+        #expect(TranscriptionModel.mlxQwen3ASR.rawValue == "mlxQwen3ASR")
     }
 
     @Test("display names are user-facing strings")
@@ -25,7 +29,9 @@ struct TranscriptionModelTests {
         #expect(TranscriptionModel.parakeetV2.displayName == "Parakeet TDT v2")
         #expect(TranscriptionModel.parakeetV3.displayName == "Parakeet TDT v3")
         #expect(TranscriptionModel.qwen3ASR06B.displayName == "Qwen3 ASR 0.6B")
-        #expect(TranscriptionModel.qwen3ASR17B.displayName == "Qwen3 ASR 1.7B (MLX)")
+        #expect(TranscriptionModel.whisperBase.displayName == "Whisper Base")
+        #expect(TranscriptionModel.whisperSmall.displayName == "Whisper Small")
+        #expect(TranscriptionModel.mlxQwen3ASR.displayName == "MLX Qwen3 ASR 1.7B")
     }
 
     @Test("round-trips through raw value")
@@ -40,15 +46,15 @@ struct TranscriptionModelTests {
         #expect(TranscriptionModel(rawValue: "nonexistent") == nil)
     }
 
-    @Test("qwen3ASR17B supports language hint")
-    func qwen3ASR17BSupportsLanguageHint() {
-        #expect(TranscriptionModel.qwen3ASR17B.supportsExplicitLanguageHint == true)
+    @Test("mlxQwen3ASR supports language hint")
+    func mlxQwen3ASRSupportsLanguageHint() {
+        #expect(TranscriptionModel.mlxQwen3ASR.supportsExplicitLanguageHint == true)
     }
 
-    @Test("qwen3ASR17B download prompt mentions size")
-    func qwen3ASR17BDownloadPrompt() {
-        let prompt = TranscriptionModel.qwen3ASR17B.downloadPrompt
-        #expect(prompt.contains("2.5 GB"))
+    @Test("mlxQwen3ASR download prompt mentions size")
+    func mlxQwen3ASRDownloadPrompt() {
+        let prompt = TranscriptionModel.mlxQwen3ASR.downloadPrompt
+        #expect(prompt.contains("1.7 GB"))
     }
 
     @Test("all cases have non-empty computed properties")

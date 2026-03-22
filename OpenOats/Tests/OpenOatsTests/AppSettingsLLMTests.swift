@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import OpenOats
+@testable import OpenOatsKit
 
 /// Keys written by the OpenAI-compatible LLM settings under test.
 private let testKeys = ["openAILLMBaseURL", "openAILLMModel", "llmProvider"]

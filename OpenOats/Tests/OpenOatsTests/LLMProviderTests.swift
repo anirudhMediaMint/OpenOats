@@ -1,13 +1,14 @@
 import Testing
-@testable import OpenOats
+@testable import OpenOatsKit
 
 @Suite("LLMProvider enum")
 struct LLMProviderTests {
-    @Test("has three cases")
+    @Test("has four cases")
     func allCases() {
-        #expect(LLMProvider.allCases.count == 3)
+        #expect(LLMProvider.allCases.count == 4)
         #expect(LLMProvider.allCases.contains(.openRouter))
         #expect(LLMProvider.allCases.contains(.ollama))
+        #expect(LLMProvider.allCases.contains(.mlx))
         #expect(LLMProvider.allCases.contains(.openAICompatible))
     }
 

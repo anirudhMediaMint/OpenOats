@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import OpenOats
+@testable import OpenOatsKit
 
 @Suite("LLM URL construction patterns")
 struct LLMURLConstructionTests {
