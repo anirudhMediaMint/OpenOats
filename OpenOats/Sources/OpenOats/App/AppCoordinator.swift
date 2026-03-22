@@ -55,9 +55,6 @@ final class AppCoordinator {
         set { withMutation(keyPath: \.lastEndedSession) { _lastEndedSession = newValue } }
     }
 
-    /// Surfaced to the UI when a storage write fails.
-    var lastStorageError: String?
-
     @ObservationIgnored nonisolated(unsafe) private var _pendingExternalCommand: ExternalCommandRequest?
     var pendingExternalCommand: ExternalCommandRequest? {
         get { access(keyPath: \.pendingExternalCommand); return _pendingExternalCommand }
@@ -85,6 +82,12 @@ final class AppCoordinator {
     private(set) var state: MeetingState {
         get { access(keyPath: \.state); return _state }
         set { withMutation(keyPath: \.state) { _state = newValue } }
+    }
+
+    @ObservationIgnored nonisolated(unsafe) private var _lastStorageError: String?
+    var lastStorageError: String? {
+        get { access(keyPath: \.lastStorageError); return _lastStorageError }
+        set { withMutation(keyPath: \.lastStorageError) { _lastStorageError = newValue } }
     }
 
     var transcriptLogger: TranscriptLogger?
@@ -197,6 +200,13 @@ final class AppCoordinator {
         lastEndedSession = nil
         lastStorageError = nil
         transcriptStore.clear()
+
+        // Wire storage error reporting so UI can surface write failures
+        await sessionStore.setWriteErrorHandler { [weak self] message in
+            Task { @MainActor [weak self] in
+                self?.lastStorageError = message
+            }
+        }
 
         // Freeze template choice at start time
         if let template = selectedTemplate {

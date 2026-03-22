@@ -88,12 +88,12 @@ final class TranscriptCleanupEngine {
         case .openAICompatible:
             apiKey = settings.openAILLMApiKey.isEmpty ? nil : settings.openAILLMApiKey
             let base = settings.openAILLMBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            guard let oaiURL = URL(string: base + "/v1/chat/completions") else {
+            guard let openAIURL = URL(string: base + "/v1/chat/completions") else {
                 error = "Invalid OpenAI-compatible URL: \(settings.openAILLMBaseURL)"
                 isCleaningUp = false
                 return records
             }
-            baseURL = oaiURL
+            baseURL = openAIURL
             model = settings.openAILLMModel
         }
 

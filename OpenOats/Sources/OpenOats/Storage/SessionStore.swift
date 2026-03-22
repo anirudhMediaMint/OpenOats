@@ -52,6 +52,7 @@ actor SessionStore {
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let stem = "session_\(formatter.string(from: Date()))"
         currentSessionID = stem
+        hasReportedWriteError = false
         let filename = "\(stem).jsonl"
         let file = sessionsDirectory.appendingPathComponent(filename)
         currentFile = file
@@ -78,14 +79,6 @@ actor SessionStore {
             fileHandle.write("\n".data(using: .utf8)!)
         } catch {
             reportWriteError("Failed to write transcript record: \(error.localizedDescription)")
-        }
-    }
-
-    private func reportWriteError(_ message: String) {
-        diagLog("[SESSION-STORE] \(message)")
-        if !hasReportedWriteError {
-            hasReportedWriteError = true
-            onWriteError?(message)
         }
     }
 
@@ -240,6 +233,13 @@ actor SessionStore {
         fileHandle = nil
         currentFile = nil
         currentSessionID = nil
+    }
+
+    private func reportWriteError(_ message: String) {
+        diagLog("[SESSION-STORE] \(message)")
+        guard !hasReportedWriteError else { return }
+        hasReportedWriteError = true
+        onWriteError?(message)
     }
 
     // MARK: - Sidecar

@@ -83,9 +83,8 @@ actor TranscriptLogger {
 
     private func reportWriteError(_ message: String) {
         diagLog("[TRANSCRIPT-LOGGER] \(message)")
-        if !hasReportedWriteError {
-            hasReportedWriteError = true
-            onWriteError?(message)
-        }
+        guard !hasReportedWriteError else { return }
+        hasReportedWriteError = true
+        onWriteError?(message)
     }
 }

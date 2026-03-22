@@ -38,7 +38,7 @@ final class MLXBackend: TranscriptionBackend, @unchecked Sendable {
         onStatus("\(displayName) ready")
     }
 
-    func transcribe(_ samples: [Float], locale: Locale) async throws -> String {
+    func transcribe(_ samples: [Float], locale: Locale, previousContext: String? = nil) async throws -> String {
         guard let model else {
             throw TranscriptionBackendError.notPrepared
         }
