@@ -97,41 +97,48 @@ else
     ENTITLEMENTS="$SWIFT_DIR/Sources/OpenOats/OpenOats.entitlements"
     echo "Signing with: $CODESIGN_IDENTITY"
 
-    # Sign Sparkle components inside-out (innermost first)
-    SPARKLE_FW_BUNDLE="$APP_DIR/Contents/Frameworks/Sparkle.framework"
-    if [[ -d "$SPARKLE_FW_BUNDLE" ]]; then
-      # Sign XPC service executables, then their bundles
-      for xpc in "$SPARKLE_FW_BUNDLE"/Versions/B/XPCServices/*.xpc; do
-        if [[ -d "$xpc" ]]; then
-          codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$xpc/Contents/MacOS/$(basename "${xpc%.xpc}")"
-          codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$xpc"
+    if [[ "$CODESIGN_IDENTITY" == "-" ]]; then
+      # Ad-hoc signing: use --deep to re-sign everything with a consistent
+      # (empty) Team ID. The inside-out approach fails for ad-hoc because
+      # --timestamp and --options runtime require a real identity.
+      codesign --deep --force --sign "-" --entitlements "$ENTITLEMENTS" "$APP_DIR"
+    else
+      # Real identity: sign Sparkle components inside-out (innermost first)
+      SPARKLE_FW_BUNDLE="$APP_DIR/Contents/Frameworks/Sparkle.framework"
+      if [[ -d "$SPARKLE_FW_BUNDLE" ]]; then
+        # Sign XPC service executables, then their bundles
+        for xpc in "$SPARKLE_FW_BUNDLE"/Versions/B/XPCServices/*.xpc; do
+          if [[ -d "$xpc" ]]; then
+            codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$xpc/Contents/MacOS/$(basename "${xpc%.xpc}")"
+            codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$xpc"
+          fi
+        done
+
+        # Sign Autoupdate helper
+        AUTOUPDATE="$SPARKLE_FW_BUNDLE/Versions/B/Autoupdate"
+        if [[ -f "$AUTOUPDATE" ]]; then
+          codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$AUTOUPDATE"
         fi
-      done
 
-      # Sign Autoupdate helper
-      AUTOUPDATE="$SPARKLE_FW_BUNDLE/Versions/B/Autoupdate"
-      if [[ -f "$AUTOUPDATE" ]]; then
-        codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$AUTOUPDATE"
+        # Sign Updater.app
+        UPDATER_APP="$SPARKLE_FW_BUNDLE/Versions/B/Updater.app"
+        if [[ -d "$UPDATER_APP" ]]; then
+          codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$UPDATER_APP/Contents/MacOS/Updater"
+          codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$UPDATER_APP"
+        fi
+
+        # Sign the framework dylib, then the framework bundle
+        codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$SPARKLE_FW_BUNDLE/Versions/B/Sparkle"
+        codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$SPARKLE_FW_BUNDLE"
       fi
 
-      # Sign Updater.app
-      UPDATER_APP="$SPARKLE_FW_BUNDLE/Versions/B/Updater.app"
-      if [[ -d "$UPDATER_APP" ]]; then
-        codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$UPDATER_APP/Contents/MacOS/Updater"
-        codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$UPDATER_APP"
-      fi
-
-      # Sign the framework dylib, then the framework bundle
-      codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$SPARKLE_FW_BUNDLE/Versions/B/Sparkle"
-      codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp "$SPARKLE_FW_BUNDLE"
+      # Sign the main app bundle
+      codesign --force --options runtime \
+        --sign "$CODESIGN_IDENTITY" \
+        --entitlements "$ENTITLEMENTS" \
+        --timestamp \
+        "$APP_DIR"
     fi
-
-    # Sign the main app bundle
-    codesign --force --options runtime \
-      --sign "$CODESIGN_IDENTITY" \
-      --entitlements "$ENTITLEMENTS" \
-      --timestamp \
-      "$APP_DIR"
 
     echo "Code signing complete"
     codesign -vvv "$APP_DIR"
