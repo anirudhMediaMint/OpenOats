@@ -1,5 +1,5 @@
 {
-  "originHash" : "cfa553dbb02734303b1c444b734b149c7f350d37e276de081a708e05f629e561",
+  "originHash" : "1d2602a3bf73e8846710a8c511e6c98f1f4b1dbceaa9f507d4bfec5879741699",
   "pins" : [
     {
       "identity" : "eventsource",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/FluidInference/FluidAudio.git",
       "state" : {
-        "revision" : "9830ce835881c0d0d40f90aabfaae3a6da5bebfb",
-        "version" : "0.12.4"
+        "revision" : "2d2979486bd7125558fe783741ef9a2757b3c1bb",
+        "version" : "0.12.5"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ml-explore/mlx-swift-lm.git",
       "state" : {
-        "revision" : "7e19e09027923d89ac47dd087d9627f610e5a91a",
-        "version" : "2.30.6"
+        "branch" : "main",
+        "revision" : "edd42fcd947eea0b19665248acf2975a28ddf58b"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "c5d11a805e765f52ba34ec7284bd4fcd6ba68615",
-        "version" : "1.7.0"
+        "revision" : "626b5b7b2f45e1b0b1c6f4a309296d1d21d7311b",
+        "version" : "1.7.1"
       }
     },
     {
@@ -159,17 +159,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/huggingface/swift-transformers",
       "state" : {
-        "revision" : "150169bfba0889c229a2ce7494cf8949f18e6906",
-        "version" : "1.1.9"
+        "revision" : "eed7264ac5e4ec5dfa6165c6e5c5577364344fe4",
+        "version" : "1.2.0"
       }
     },
     {
       "identity" : "whisperkit",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/argmaxinc/WhisperKit.git",
+      "location" : "https://github.com/yazins-ai/WhisperKit.git",
       "state" : {
-        "revision" : "26577ce3017aae8c9edfd9a0dd17851bd248c731",
-        "version" : "0.17.0"
+        "branch" : "fix/swift-transformers-compat",
+        "revision" : "219200b8d915c7a59f11c28fe1edd68cb1dcb9ae"
       }
     },
     {

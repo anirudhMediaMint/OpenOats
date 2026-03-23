@@ -68,12 +68,30 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     }
 }
 
+/// LS-EEND diarization model variant.
+enum DiarizationVariant: String, CaseIterable, Identifiable {
+    case ami
+    case callhome
+    case dihard3
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .ami: "AMI (In-person, 4 speakers)"
+        case .callhome: "CALLHOME (Phone, 7 speakers)"
+        case .dihard3: "DIHARD III (General, 10 speakers)"
+        }
+    }
+}
+
 enum TranscriptionModel: String, CaseIterable, Identifiable {
     case parakeetV2
     case parakeetV3
     case qwen3ASR06B
     case whisperBase
     case whisperSmall
+    case whisperLargeV3Turbo
     case mlxQwen3ASR
 
     var id: String { rawValue }
@@ -85,6 +103,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         case .qwen3ASR06B: "Qwen3 ASR 0.6B"
         case .whisperBase: "Whisper Base"
         case .whisperSmall: "Whisper Small"
+        case .whisperLargeV3Turbo: "Whisper Large v3 Turbo"
         case .mlxQwen3ASR: "MLX Qwen3 ASR 1.7B"
         }
     }
@@ -99,6 +118,8 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
             "Whisper Base requires a one-time model download (~142 MB)."
         case .whisperSmall:
             "Whisper Small requires a one-time model download (~244 MB)."
+        case .whisperLargeV3Turbo:
+            "Whisper Large v3 Turbo requires a one-time model download (~800 MB)."
         case .mlxQwen3ASR:
             "MLX Qwen3 ASR 1.7B requires a one-time model download (~1.7 GB)."
         }
@@ -108,7 +129,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         switch self {
         case .qwen3ASR06B, .mlxQwen3ASR:
             true
-        case .parakeetV2, .parakeetV3, .whisperBase, .whisperSmall:
+        case .parakeetV2, .parakeetV3, .whisperBase, .whisperSmall, .whisperLargeV3Turbo:
             false
         }
     }
@@ -117,7 +138,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         switch self {
         case .qwen3ASR06B, .mlxQwen3ASR:
             "Language Hint"
-        case .parakeetV2, .parakeetV3, .whisperBase, .whisperSmall:
+        case .parakeetV2, .parakeetV3, .whisperBase, .whisperSmall, .whisperLargeV3Turbo:
             "Locale"
         }
     }
@@ -134,6 +155,8 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
             "Optional. Used as a language hint for MLX Qwen3 ASR. Enter a locale such as en-US, fr-FR, or ja-JP. Applies when a new session starts."
         case .whisperBase, .whisperSmall:
             "Whisper auto-detects the spoken language. Locale changes do not affect this model."
+        case .whisperLargeV3Turbo:
+            "Whisper Large v3 Turbo auto-detects the spoken language. Best multilingual batch model."
         }
     }
 
@@ -142,6 +165,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         switch self {
         case .whisperBase: .base
         case .whisperSmall: .small
+        case .whisperLargeV3Turbo: .largeV3Turbo
         default: nil
         }
     }
@@ -153,8 +177,15 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         case .qwen3ASR06B: return Qwen3Backend()
         case .whisperBase: return WhisperKitBackend(variant: .base)
         case .whisperSmall: return WhisperKitBackend(variant: .small)
+        case .whisperLargeV3Turbo: return WhisperKitBackend(variant: .largeV3Turbo)
         case .mlxQwen3ASR: return MLXBackend()
         }
+    }
+
+    /// Models suitable for offline batch re-transcription.
+    /// Excludes Parakeet (English-focused streaming models).
+    static var batchSuitableModels: [TranscriptionModel] {
+        [.whisperSmall, .whisperLargeV3Turbo, .qwen3ASR06B]
     }
 }
 
@@ -529,6 +560,58 @@ final class AppSettings {
         }
     }
 
+    /// When true, re-transcribes audio with a higher-quality model after each meeting.
+    @ObservationIgnored nonisolated(unsafe) private var _enableBatchRefinement: Bool
+    var enableBatchRefinement: Bool {
+        get { access(keyPath: \.enableBatchRefinement); return _enableBatchRefinement }
+        set {
+            withMutation(keyPath: \.enableBatchRefinement) {
+                _enableBatchRefinement = newValue
+                defaults.set(newValue, forKey: "enableBatchRefinement")
+            }
+        }
+    }
+
+    /// The model used for offline batch re-transcription after meetings.
+    /// WARNING: WhisperKit large-v3 CoreML (NOT turbo) is unsuitable for non-English
+    /// batch work (69.6% WER in benchmarks). Use large-v3-turbo instead.
+    @ObservationIgnored nonisolated(unsafe) private var _batchTranscriptionModel: TranscriptionModel
+    var batchTranscriptionModel: TranscriptionModel {
+        get { access(keyPath: \.batchTranscriptionModel); return _batchTranscriptionModel }
+        set {
+            withMutation(keyPath: \.batchTranscriptionModel) {
+                _batchTranscriptionModel = newValue
+                defaults.set(newValue.rawValue, forKey: "batchTranscriptionModel")
+            }
+        }
+    }
+
+    // MARK: - Speaker Diarization
+
+    /// When true, LS-EEND diarization runs on system audio to distinguish multiple remote speakers.
+    @ObservationIgnored nonisolated(unsafe) private var _enableDiarization: Bool
+    var enableDiarization: Bool {
+        get { access(keyPath: \.enableDiarization); return _enableDiarization }
+        set {
+            withMutation(keyPath: \.enableDiarization) {
+                _enableDiarization = newValue
+                defaults.set(newValue, forKey: "enableDiarization")
+            }
+        }
+    }
+
+    /// The LS-EEND variant used for diarization.
+    @ObservationIgnored nonisolated(unsafe) private var _diarizationVariant: String
+    var diarizationVariant: DiarizationVariant {
+        get { access(keyPath: \.diarizationVariant); return DiarizationVariant(rawValue: _diarizationVariant) ?? .dihard3 }
+        set {
+            withMutation(keyPath: \.diarizationVariant) {
+                _diarizationVariant = newValue.rawValue
+                defaults.set(newValue.rawValue, forKey: "diarizationVariant")
+            }
+        }
+    }
+
     /// When true, all app windows are invisible to screen sharing / recording.
     @ObservationIgnored nonisolated(unsafe) private var _hideFromScreenShare: Bool
     var hideFromScreenShare: Bool {
@@ -672,6 +755,19 @@ final class AppSettings {
         self._hasAcknowledgedRecordingConsent = defaults.bool(forKey: "hasAcknowledgedRecordingConsent")
         self._saveAudioRecording = defaults.bool(forKey: "saveAudioRecording")
         self._enableTranscriptRefinement = defaults.bool(forKey: "enableTranscriptRefinement")
+        // Default to enabled if key has never been set
+        if defaults.object(forKey: "enableBatchRefinement") == nil {
+            self._enableBatchRefinement = true
+        } else {
+            self._enableBatchRefinement = defaults.bool(forKey: "enableBatchRefinement")
+        }
+        self._batchTranscriptionModel = TranscriptionModel(
+            rawValue: defaults.string(forKey: "batchTranscriptionModel") ?? ""
+        ) ?? .whisperLargeV3Turbo
+
+        // Diarization — default to disabled
+        self._enableDiarization = defaults.bool(forKey: "enableDiarization")
+        self._diarizationVariant = defaults.string(forKey: "diarizationVariant") ?? DiarizationVariant.dihard3.rawValue
 
         // Echo cancellation — default to enabled
         if defaults.object(forKey: "enableEchoCancellation") == nil {

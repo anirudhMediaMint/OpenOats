@@ -36,8 +36,8 @@ public struct OpenOatsRootApp: App {
                         appDelegate.setupMenuBarIfNeeded(
                             coordinator: coordinator,
                             settings: settings,
-                            updater: updaterController.updater,
-                            showMainWindow: { [self] in showMainWindow() }
+                            showMainWindow: { [self] in showMainWindow() },
+                            checkForUpdates: { updaterController.checkForUpdatesFromMenuBar() }
                         )
                     }
                     settings.applyScreenShareVisibility()
@@ -69,6 +69,11 @@ public struct OpenOatsRootApp: App {
                     Divider()
                 }
 
+                Button("Toggle Meeting") {
+                    appDelegate.toggleMeeting()
+                }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+
                 Button("Past Meetings") {
                     openNotesWindow()
                 }
@@ -89,6 +94,14 @@ public struct OpenOatsRootApp: App {
                 .defaultAppStorage(defaults)
         }
         .defaultSize(width: 700, height: 550)
+
+        Window("Transcript", id: "transcript") {
+            TranscriptWindowView()
+                .environment(runtime)
+                .environment(coordinator)
+                .defaultAppStorage(defaults)
+        }
+        .defaultSize(width: 600, height: 700)
 
         Settings {
             SettingsView(settings: settings, updater: updaterController.updater)
@@ -130,8 +143,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func setupMenuBarIfNeeded(
         coordinator: AppCoordinator,
         settings: AppSettings,
-        updater: SPUUpdater,
-        showMainWindow: @escaping () -> Void
+        showMainWindow: @escaping () -> Void,
+        checkForUpdates: @escaping () -> Void
     ) {
         guard menuBarController == nil else { return }
 
@@ -140,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let controller = MenuBarController(
             coordinator: coordinator,
             settings: settings,
-            updater: updater
+            onCheckForUpdates: checkForUpdates
         )
         controller.onShowMainWindow = showMainWindow
         controller.onQuitApp = { [weak self] in
@@ -152,6 +165,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var isUITest: Bool {
         ProcessInfo.processInfo.environment["OPENOATS_UI_TEST"] != nil
     }
+
+    private var globalHotkeyMonitor: Any?
+    private var localHotkeyMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if !isUITest {
@@ -188,6 +204,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
         }
+
+        registerGlobalHotkey()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -271,6 +289,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 trigger: nil
             )
             try? await center.add(request)
+        }
+    }
+
+    // MARK: - Global Hotkey (Cmd+Shift+L)
+
+    private func registerGlobalHotkey() {
+        let matchesHotkey: (NSEvent) -> Bool = { event in
+            event.modifierFlags.contains([.command, .shift])
+                && event.charactersIgnoringModifiers?.lowercased() == "l"
+        }
+
+        globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard matchesHotkey(event) else { return }
+            Task { @MainActor in self?.toggleMeeting() }
+        }
+
+        localHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard matchesHotkey(event) else { return event }
+            Task { @MainActor in self?.toggleMeeting() }
+            return nil
+        }
+    }
+
+    func toggleMeeting() {
+        guard let coordinator, let settings else { return }
+        guard settings.hasAcknowledgedRecordingConsent else { return }
+
+        if coordinator.isRecording {
+            coordinator.handle(.userStopped, settings: settings)
+        } else {
+            coordinator.handle(.userStarted(.manual()), settings: settings)
         }
     }
 

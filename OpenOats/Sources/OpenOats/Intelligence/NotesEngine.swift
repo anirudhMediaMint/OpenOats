@@ -136,7 +136,7 @@ final class NotesEngine {
         let maxChars = 60_000
 
         for record in records {
-            let label = record.speaker == .you ? "You" : "Them"
+            let label = record.speaker.displayLabel
             let bestText = record.refinedText ?? record.text
             let line = "[\(timeFmt.string(from: record.timestamp))] \(label): \(bestText)"
             totalChars += line.count

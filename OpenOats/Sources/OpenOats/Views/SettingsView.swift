@@ -248,6 +248,40 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Batch Refinement") {
+                Toggle("Enhance transcript after meeting", isOn: $settings.enableBatchRefinement)
+                    .font(.system(size: 12))
+                Text("Re-transcribes audio with a higher-quality model after each meeting for better accuracy. Runs in the background.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+
+                if settings.enableBatchRefinement {
+                    Picker("Batch Model", selection: $settings.batchTranscriptionModel) {
+                        ForEach(TranscriptionModel.batchSuitableModels) { model in
+                            Text(model.displayName).tag(model)
+                        }
+                    }
+                    .font(.system(size: 12))
+                }
+            }
+
+            Section("Speaker Diarization") {
+                Toggle("Identify multiple remote speakers", isOn: $settings.enableDiarization)
+                    .font(.system(size: 12))
+                Text("Uses LS-EEND to distinguish different speakers on system audio. Requires a one-time model download (~50 MB).")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+
+                if settings.enableDiarization {
+                    Picker("Variant", selection: $settings.diarizationVariant) {
+                        ForEach(DiarizationVariant.allCases) { variant in
+                            Text(variant.displayName).tag(variant)
+                        }
+                    }
+                    .font(.system(size: 12))
+                }
+            }
+
             Section("Privacy") {
                 Toggle("Hide from screen sharing", isOn: $settings.hideFromScreenShare)
                     .font(.system(size: 12))
