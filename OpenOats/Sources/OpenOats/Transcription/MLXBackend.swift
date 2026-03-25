@@ -11,6 +11,15 @@ final class MLXBackend: TranscriptionBackend, @unchecked Sendable {
     private static let hubModelID = "mlx-community/Qwen3-ASR-1.7B-8bit"
 
     func checkStatus() -> BackendStatus {
+        // MLX requires its Metal shader library (mlx.metallib) to be colocated
+        // with the binary. SPM builds don't produce this automatically — only
+        // Xcode builds do. Check for it before allowing model use.
+        if !Self.metalLibAvailable {
+            return .needsDownload(
+                prompt: "MLX Qwen3 ASR is not yet supported in standalone app builds. Metal shader library is missing. Please use a different transcription model."
+            )
+        }
+
         let cacheDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".cache/huggingface/hub")
         let modelDir = cacheDir.appendingPathComponent(
@@ -20,6 +29,19 @@ final class MLXBackend: TranscriptionBackend, @unchecked Sendable {
         return exists ? .ready : .needsDownload(
             prompt: "MLX Qwen3 ASR 1.7B requires a one-time model download (~1.7 GB)."
         )
+    }
+
+    /// Check whether the MLX Metal shader library is accessible.
+    private static var metalLibAvailable: Bool {
+        let fm = FileManager.default
+        let binaryDir = Bundle.main.executableURL?.deletingLastPathComponent()
+        let candidates = [
+            binaryDir?.appendingPathComponent("mlx.metallib"),
+            binaryDir?.appendingPathComponent("Resources/mlx.metallib"),
+            binaryDir?.appendingPathComponent("default.metallib"),
+            binaryDir?.appendingPathComponent("Resources/default.metallib"),
+        ]
+        return candidates.contains { $0.map { fm.fileExists(atPath: $0.path) } ?? false }
     }
 
     func clearModelCache() {

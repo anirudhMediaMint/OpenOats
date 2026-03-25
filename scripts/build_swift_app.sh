@@ -59,6 +59,14 @@ fi
 # Copy Info.plist
 cp "$SWIFT_DIR/Sources/OpenOats/Info.plist" "$APP_DIR/Contents/Info.plist"
 
+# Stamp version from latest git tag (e.g. v1.21.0 → 1.21.0)
+GIT_VERSION=$(cd "$ROOT_DIR" && git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+if [[ -n "$GIT_VERSION" ]]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $GIT_VERSION" "$APP_DIR/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GIT_VERSION" "$APP_DIR/Contents/Info.plist"
+  echo "Version set to $GIT_VERSION (from git tag)"
+fi
+
 # Copy app icon
 ICON_PATH="$SWIFT_DIR/Sources/OpenOats/Assets/AppIcon.icns"
 if [[ -f "$ICON_PATH" ]]; then

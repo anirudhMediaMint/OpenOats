@@ -538,6 +538,9 @@ struct SettingsView: View {
     }
 
     private func chooseKBFolder() {
+        // LSUIElement apps must activate before showing modal panels
+        NSApp.activate(ignoringOtherApps: true)
+
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -550,6 +553,9 @@ struct SettingsView: View {
     }
 
     private func chooseNotesFolder() {
+        // LSUIElement apps must activate before showing modal panels
+        NSApp.activate(ignoringOtherApps: true)
+
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
